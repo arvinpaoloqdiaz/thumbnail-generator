@@ -70,11 +70,10 @@ npm run dev
 
 > **Prerequisites**: [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) installed.
 
-The build uses a **4-stage optimized pipeline**:
+The build uses a **3-stage optimized pipeline**:
 1. `deps` — `node:20-alpine` installs production `node_modules` (tiny layer, ~50 MB base)
 2. `builder` — compiles the Next.js app with all devDependencies
-3. `playwright-browsers` — installs only Chromium into the Playwright base image
-4. `runner` — minimal final image: standalone server + prod deps + Chromium only
+3. `runner` — Playwright base image (Chromium pre-installed at `/ms-playwright`) + standalone server output + prod deps only
 
 The container runs as a **non-root user** (`nextjs`) and includes a **healthcheck** and **resource limits** for Chromium safety.
 

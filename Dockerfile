@@ -1,16 +1,15 @@
 # =============================================================================
-# Stage 1: Install node_modules
-# Use a lean Alpine image — no Playwright needed here, just npm.
-# This keeps the dependency-install layer cache small and fast.
+# Stage 1: Install production node_modules
+# Use lean Alpine — no Playwright needed here, just npm.
 # =============================================================================
 FROM node:20-alpine AS deps
 
 WORKDIR /app
 
-# Copy lockfiles only — changes to src won't bust this cache layer
+# Copy lockfiles only — src changes won't bust this cache layer
 COPY package.json package-lock.json ./
 
-# npm ci: deterministic, uses lockfile, removes node_modules before install
+# Deterministic install, production deps only (no devDependencies)
 RUN npm ci --omit=dev
 
 # =============================================================================
@@ -21,37 +20,24 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install ALL deps (including devDependencies) for the build step
+# Install ALL deps (including devDependencies) for the build
 COPY package.json package-lock.json ./
 RUN npm ci
 
-# Copy source — ordered from least-to-most volatile for optimal layer caching
+# Copy source — ordered least-to-most volatile for optimal layer caching
 COPY next.config.ts tsconfig.json postcss.config.mjs ./
 COPY public ./public
 COPY src ./src
 
-# Suppress Next.js telemetry during build
 ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN npm run build
 
 # =============================================================================
-# Stage 3: Install Playwright + Chromium
-# Separate stage so its heavy layer is cached independently from source changes.
-# =============================================================================
-FROM mcr.microsoft.com/playwright:v1.63.0-noble AS playwright-browsers
-
-WORKDIR /app
-
-# Copy only production node_modules (no devDeps) from the deps stage
-COPY --from=deps /app/node_modules ./node_modules
-
-# Install only Chromium — skips Firefox & WebKit to keep image as lean as possible
-RUN npx playwright install chromium
-
-# =============================================================================
-# Stage 4: Production runner
-# Minimal surface area: only built output + production node_modules + Chromium.
+# Stage 3: Production runner
+# The Playwright image ships with Chromium pre-installed at /ms-playwright
+# (via PLAYWRIGHT_BROWSERS_PATH). No browser install step needed — it's
+# already in the base image. We only copy our app code and prod node_modules.
 # =============================================================================
 FROM mcr.microsoft.com/playwright:v1.63.0-noble AS runner
 
@@ -64,18 +50,14 @@ ENV NODE_ENV=production \
     HOSTNAME="0.0.0.0"
 
 # --- Security: run as a non-root user ---
-# The Playwright image already creates a 'pwuser'; create a dedicated app user
-# that owns only /app to follow the principle of least privilege.
+# UID/GID 10001 avoids collisions with system accounts in the Playwright base image
 RUN groupadd --system --gid 10001 nodejs \
  && useradd --system --uid 10001 --gid nodejs nextjs
 
-# Copy Playwright browser binaries + their system deps are already in the base image
-COPY --from=playwright-browsers /root/.cache /root/.cache
+# Copy production node_modules (no devDeps) from the deps stage
+COPY --from=deps /app/node_modules ./node_modules
 
-# Copy production node_modules
-COPY --from=playwright-browsers /app/node_modules ./node_modules
-
-# Copy Next.js standalone server output
+# Copy Next.js standalone server + static assets from the builder stage
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
