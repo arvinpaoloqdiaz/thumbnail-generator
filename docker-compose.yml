@@ -1,0 +1,36 @@
+services:
+  thumbnail-studio:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # Pass NODE_ENV at build time so Next.js can optimize the bundle
+      args:
+        NODE_ENV: production
+    image: thumbnail-studio:latest
+    container_name: thumbnail-studio
+    ports:
+      - "3000:3000"
+    volumes:
+      # Persist user-created presets across container restarts.
+      # The default.json shipped with the repo is baked into the image;
+      # any presets saved at runtime are written here on the host.
+      - ./public/presets:/app/public/presets
+    environment:
+      - NODE_ENV=production
+    # Health check: Docker will restart the container if the app becomes unresponsive
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+    # Limit container resources to prevent runaway Chromium processes
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 256M

@@ -1,0 +1,43 @@
+# ── Build context exclusions ──────────────────────────────────────────────────
+# Everything listed here is excluded from the Docker build context (the set of
+# files sent to the daemon). A smaller context = faster builds.
+
+# Runtime-generated / large dirs that are never needed in the image
+node_modules
+.next
+
+# Version control
+.git
+.gitignore
+
+# Docker-specific files (no need to embed them inside the image)
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Secrets / local env overrides (never bake these into an image)
+.env
+.env.*
+!.env.example
+
+# Editor & IDE artifacts
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# CI / agent files
+.agents
+AGENTS.md
+CLAUDE.md
+
+# Logs
+*.log
+npm-debug.log*
+
+# Documentation (not needed at runtime)
+*.md

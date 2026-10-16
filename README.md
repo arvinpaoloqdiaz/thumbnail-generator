@@ -66,6 +66,60 @@ npm run dev
 
 3. Open [http://localhost:3000](http://localhost:3000) with your browser to see the studio.
 
+## Running with Docker
+
+> **Prerequisites**: [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) installed.
+
+The build uses a **4-stage optimized pipeline**:
+1. `deps` — `node:20-alpine` installs production `node_modules` (tiny layer, ~50 MB base)
+2. `builder` — compiles the Next.js app with all devDependencies
+3. `playwright-browsers` — installs only Chromium into the Playwright base image
+4. `runner` — minimal final image: standalone server + prod deps + Chromium only
+
+The container runs as a **non-root user** (`nextjs`) and includes a **healthcheck** and **resource limits** for Chromium safety.
+
+### Quickstart (recommended)
+
+```bash
+# Build and start the container
+docker compose up --build
+
+# Run in the background
+docker compose up --build -d
+
+# Stop the container
+docker compose down
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+### Without Docker Compose
+
+```bash
+# Build the image
+docker build -t thumbnail-studio .
+
+# Run the container
+docker run -p 3000:3000 \
+  -v "$(pwd)/public/presets:/app/public/presets" \
+  thumbnail-studio
+```
+
+### Preset Persistence
+
+Presets saved at runtime are written to `public/presets/` inside the container. The `docker-compose.yml` mounts this directory back to your host automatically:
+
+```yaml
+volumes:
+  - ./public/presets:/app/public/presets
+```
+
+This means:
+- ✅ **Presets you save** survive container restarts and rebuilds.
+- ✅ `default.json` is baked into the image and always available as a fallback.
+- ⚠️ If you run **without** the volume mount, any new presets will be lost when the container stops.
+
+
 ## How the Bento Layout Works
 
 When a webpage screenshot is loaded, the Canvas engine slices the tall vertical image into equal-height segments (controlled by the **View Height** slider). These slices are mapped onto a 5×5 staggered card grid:
@@ -94,4 +148,7 @@ src/
 public/
 └── presets/
     └── default.json               # Default preset (tracked by Git)
+Dockerfile                         # 4-stage optimized build
+.dockerignore                      # Build context exclusions
+docker-compose.yml                 # One-command setup with volume mount + healthcheck
 ```
