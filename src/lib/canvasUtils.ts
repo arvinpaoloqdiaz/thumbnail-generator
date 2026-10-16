@@ -1,7 +1,8 @@
 export const PRESETS = {
   '16:9': { name: '16:9 Landscape', width: 1920, height: 1080 },
-  '4:3': { name: '4:3 Standard', width: 1600, height: 1200 },
-  '1:1': { name: '1:1 Square', width: 1080, height: 1080 },
+  'og':   { name: 'OG Image (Social)', width: 1200, height: 630 },
+  '4:3':  { name: '4:3 Standard', width: 1600, height: 1200 },
+  '1:1':  { name: '1:1 Square', width: 1080, height: 1080 },
   '9:16': { name: '9:16 Portrait', width: 1080, height: 1920 },
 };
 
@@ -28,7 +29,14 @@ export const PATTERNS = [
 
 export function drawBackground(ctx: CanvasRenderingContext2D, w: number, h: number, bgTheme: string) {
   let grad = ctx.createLinearGradient(0, 0, w, h);
-  if (bgTheme === 'green') {
+  if (bgTheme === 'pink' || bgTheme === '#fac6d0') {
+    grad.addColorStop(0, '#fce7ed');
+    grad.addColorStop(1, '#fac6d0');
+  } else if (bgTheme.startsWith('#') || bgTheme.startsWith('rgb')) {
+    // Custom solid or simple custom tone
+    grad.addColorStop(0, bgTheme);
+    grad.addColorStop(1, bgTheme);
+  } else if (bgTheme === 'green') {
     grad.addColorStop(0, '#a3e635');
     grad.addColorStop(1, '#4d7c0f');
   } else if (bgTheme === 'ocean') {
@@ -53,14 +61,15 @@ export function drawPattern(
   w: number,
   h: number,
   pattern: string,
-  opacity: number
+  opacity: number,
+  patternColor: string = '#ffffff'
 ) {
   if (pattern === 'none' || opacity === 0) return;
 
   ctx.save();
   ctx.globalAlpha = opacity / 100;
-  ctx.strokeStyle = 'rgba(255, 255, 255, 1)';
-  ctx.fillStyle = 'rgba(255, 255, 255, 1)';
+  ctx.strokeStyle = patternColor;
+  ctx.fillStyle = patternColor;
   ctx.lineWidth = 1;
 
   const size = 40; // grid spacing
@@ -179,7 +188,19 @@ export function drawBentoWebpage(
   w: number, 
   h: number, 
   image: HTMLImageElement,
-  options: { viewHeight: number, rotation: number, blur: number, scale: number, gap: number, edgeBlur: number, vignetteColor: 'black' | 'white', borderRadius: number }
+  options: { 
+    viewHeight: number, 
+    rotation: number, 
+    blur: number, 
+    scale: number, 
+    gap: number, 
+    edgeBlur: number, 
+    vignetteColor: 'black' | 'white', 
+    borderRadius: number,
+    offsetX?: number,
+    offsetY?: number,
+    alignment?: 'center' | 'left' | 'right'
+  }
 ) {
   const sourceWidth = image.width;
   const sourceViewHeight = options.viewHeight || 900; 
@@ -189,18 +210,30 @@ export function drawBentoWebpage(
   const cardW = sourceWidth * options.scale;
   const cardH = sourceViewHeight * options.scale;
 
-  const startX = w / 2;
-  const startY = h / 2;
+  const startX = w / 2 + ((options.offsetX || 0) / 100) * w;
+  const startY = h / 2 + ((options.offsetY || 0) / 100) * h;
 
-  const cols = 5;
   const rows = 5;
-
   const globalRot = (options.rotation * Math.PI) / 180;
+  const alignment = options.alignment || 'center';
+
+  let minCol = -2;
+  let maxCol = 2;
+
+  if (alignment === 'left') {
+    // Top-of-page hero is at column 0 on the left, trailing slices cascade only to the right
+    minCol = 0;
+    maxCol = 4;
+  } else if (alignment === 'right') {
+    // Top-of-page hero is at column 0 on the right, trailing slices cascade only to the left
+    minCol = -4;
+    maxCol = 0;
+  }
 
   let gridPoints: { c: number, r: number, dist: number }[] = [];
-  for (let c = -Math.floor(cols/2); c <= Math.floor(cols/2); c++) {
-    for (let r = -Math.floor(rows/2); r <= Math.floor(rows/2); r++) {
-      gridPoints.push({ c, r, dist: c*c + r*r });
+  for (let c = minCol; c <= maxCol; c++) {
+    for (let r = -Math.floor(rows / 2); r <= Math.floor(rows / 2); r++) {
+      gridPoints.push({ c, r, dist: c * c + r * r });
     }
   }
   gridPoints.sort((a, b) => b.dist - a.dist);
@@ -271,7 +304,17 @@ export function drawApiMockup(
   w: number, 
   h: number, 
   apiData: any,
-  options: { rotation: number, scale: number, edgeBlur: number, vignetteColor: 'black' | 'white', textScale: number, borderRadius: number, cardAspect: number }
+  options: { 
+    rotation: number, 
+    scale: number, 
+    edgeBlur: number, 
+    vignetteColor: 'black' | 'white', 
+    textScale: number, 
+    borderRadius: number, 
+    cardAspect: number,
+    offsetX?: number,
+    offsetY?: number
+  }
 ) {
   const pad = 80;
   // Window width uses a canvas-fraction base; height is derived from the chosen card aspect
@@ -279,8 +322,8 @@ export function drawApiMockup(
   const fw = baseW;
   const fh = fw / options.cardAspect;
   
-  const cx = w / 2;
-  const cy = h / 2;
+  const cx = w / 2 + ((options.offsetX || 0) / 100) * w;
+  const cy = h / 2 + ((options.offsetY || 0) / 100) * h;
 
   ctx.save();
   ctx.translate(cx, cy);

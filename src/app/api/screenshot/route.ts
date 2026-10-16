@@ -33,7 +33,7 @@ export async function POST(req: Request) {
     await browser.close();
 
     // Return image as base64 or binary
-    return new NextResponse(screenshot, {
+    return new NextResponse(new Uint8Array(screenshot), {
       status: 200,
       headers: {
         'Content-Type': 'image/png',
