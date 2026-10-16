@@ -66,8 +66,8 @@ ENV NODE_ENV=production \
 # --- Security: run as a non-root user ---
 # The Playwright image already creates a 'pwuser'; create a dedicated app user
 # that owns only /app to follow the principle of least privilege.
-RUN groupadd --system --gid 1001 nodejs \
- && useradd --system --uid 1001 --gid nodejs nextjs
+RUN groupadd --system --gid 10001 nodejs \
+ && useradd --system --uid 10001 --gid nodejs nextjs
 
 # Copy Playwright browser binaries + their system deps are already in the base image
 COPY --from=playwright-browsers /root/.cache /root/.cache
